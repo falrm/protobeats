@@ -1,0 +1,267 @@
+syntax = "proto3";
+
+// `java_package` must match the package name you declare for `androidPackage` in your pubspec.yaml
+option java_package = "org.beatscratch.models";
+
+// NoteName corresponds to "white keys" (notes A-G)
+enum NoteLetter {
+  C = 0;
+  D = 1;
+  E = 2;
+  F = 3;
+  G = 4;
+  A = 5;
+  B = 6;
+};
+
+enum NoteSign {
+  natural = 0;
+  flat = 1;
+  double_flat = 2;
+  sharp = 3;
+  double_sharp = 4;
+}
+
+// Describes notes as pitch classes (i.e. without octave)
+message NoteName {
+  NoteLetter note_letter = 1;
+  NoteSign note_sign = 2;
+}
+
+message Chord {
+  NoteName root_note = 1;
+  // Optional. When note provided, applications referencing bass_note should generally
+  // be able to revert to root_note.
+  NoteName bass_note = 2;
+  // 11-bit bit-set value from 0-2047. Bits (in order from msb to lsb) indicate presence of the
+  // minor 2, major 2, minor 3, major 3, ..., major 7 of the chord. Some examples:
+  // * 0 = 0b00000000000 is a chord of just the root note with no other notes.
+  // * 144 = 0b00010010000 is a regular Major chord.
+  // * 145 = 0b00010010001 is a Major 7 (M7) chord.
+  // * A neat math thing: every odd extension has a M7 in it. Every even one does not.
+  // * 2047 = 0b11111111111 is a chromatic scale rooted at root_note.
+  // * 725 = 0b01011010101 is a major scale or a M13(11) chord (which are the same thing).
+  //
+  // With music theory, the idea is that we can derive the Note (i.e., differentiate whether these
+  // should be a C# or Db) for all the tones in the extension based on the root_note and bass_note.
+  uint32 chroma = 3;
+}
+
+message Tempo {
+  float bpm = 1;
+  enum Transition {
+    // Indicates the Section should be played at the same tempo throughout. If the next Section
+    // has a different bpm, the change will be sudden with no gradual speed up/slow down.
+    a_tempo = 0;
+    // Indicates the Section should start at the indicated bpm, and linearly increase or
+    // decrease bpm to match the bpm of the next Section
+    linear = 1;
+  }
+  Transition transition = 2;
+}
+
+message Meter {
+  uint32 default_beats_per_measure = 1;
+}
+
+// A Harmony is a rhythmic mapping of chords.
+message Harmony {
+  string id = 1;
+  uint32 subdivisions_per_beat = 2;
+  // Length in subdivisions (so, length in beats is length / subdivisions_per_beat)
+  uint32 length = 3;
+  // Must contain at least one entry with key less than Harmony length. Generally, should contain
+  // an entry at 0.
+  map<sint32, Chord> data = 100;
+}
+
+enum InstrumentType {
+  // Represents actual tones, with a basis of "tones" of C4 = 0.
+  harmonic = 0;
+  // Represents MIDI drum tones (so B1, below C2, is a kick, F#2 is a hat, etc.) from C4 = 0
+  drum = 1;
+}
+
+enum MelodyType {
+  // Uses MidiChanges and represents raw MIDI instrument data.
+  midi = 0;
+  // TODO: In a future version, we will envelope audio bytes in the proto models.
+  // No corresponding message types go with this yet.
+  audio = 1;
+}
+
+// Indicates how a Melody should be interpreted when referenced in a Section under a Harmony.
+enum MelodyInterpretationType {
+  // Notes of the Melody should be played as-is
+  fixed_nonadaptive = 0;
+  // Notes of the Melody should be played, adjusting to the nearest tone in the Chord,
+  // favoring a move down over a move up when two tones in the Chord are above/below the indicated
+  // tone.
+  fixed = 1;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of C.
+  relative_to_c = 2;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of C#.
+  relative_to_c_sharp = 3;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of D.
+  relative_to_d = 4;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of D#.
+  relative_to_d_sharp = 5;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of E.
+  relative_to_e = 6;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of F.
+  relative_to_f = 7;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of F#.
+  relative_to_f_sharp = 8;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of G.
+  relative_to_g = 9;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of G#.
+  relative_to_g_sharp = 10;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of A.
+  relative_to_a = 11;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of A#.
+  relative_to_a_sharp = 12;
+  // Notes of the Melody should be played, adapting to the chord as in the case of "fixed", but
+  // should also transpose up/down to the Chord's root. Melody is built assuming a root of B.
+  relative_to_b = 13;
+}
+
+message Melody {
+  // Unique identifier for a Melody. Should be kept unique within a given Score.
+  string id = 1;
+  // Optional name for the Melody.
+  string name = 2;
+  // How many subdivisions per beat the melody is in. Allowed values are 1-24 (MIDI beat clock max).
+  // 1 per beat is quarter notes in 4/4 time; 3 is triplet eighths; 4 is sixteenths; 6 is triplet
+  // sixteenths; etc.
+  uint32 subdivisions_per_beat = 3;
+  // Length in subdivisions (so, length in beats is length / subdivisions_per_beat)
+  uint32 length = 4;
+  // Indicates what type of data (attacks only or full MIDI) this melody uses.
+  MelodyType type = 5;
+  // Indicates what type of instrument the Melody is for. In the context of a Score,
+  // should match the Part's instrument type. Useful for letting the user copy/paste Melodies
+  // between Parts.
+  InstrumentType instrument_type = 6;
+  MelodyInterpretationType interpretation_type = 7;
+  // The Melody notes/data, the type of which should match the MelodyType.
+  oneof data {
+    MidiData midi_data = 101;
+  }
+}
+
+// Map of subdivisions to MIDI data.
+message MidiData {
+  map<sint32,MidiChange> data = 1;
+}
+
+// A "classical" notion of a slice of a melody defined to be easy to analyze, draw on a screen
+// and make touchable. A "rest" is any MelodicAttack with no tones. MelodicAttacks can represent a
+// traditional "music theory class" single-note melody, but expanded slightly so that we can have
+// multiple notes. Notes must all attack at once and release at once.
+//
+// To phrase it more simply, this way of breaking down melodies forces you to separate your
+// soprano from your bass part. Unless they're singing the exact same rhythm the entire time.
+message MelodicAttack {
+  repeated sint32 tones = 1;
+  // Valid range: 0 to 1.
+  float velocity = 2;
+}
+
+// Represents raw midi data (corresponding to a subidivision in a melody). Can include NOTE ON,
+// NOTE OFF, knobby things, etc. Playback engine is responsible for modifying channel from original
+// recorded MIDI messages at playback time. Note that MIDI note names are a first-class citizen:
+// *in a MidiChange NOTE ON or NOTE OFF, C4 = 60. Elsewhere C4 = 0.
+//
+// To phrase it more simply, this way of breaking down melodies will let you represent your soprano
+// and bass parts as a single "melody." But your music theory teach would berate you in class for
+// that. These are also harder to make editable by touch, but handy for recording MIDI performance
+// by a musician.
+message MidiChange {
+  bytes data = 1;
+}
+
+message Instrument {
+  string name = 1;
+  InstrumentType type = 2;
+  float volume = 3;
+  uint32 midi_channel = 4;
+  uint32 midi_instrument = 5;
+  uint32 midi_gm2_msb = 6;
+  uint32 midi_gm2_lsb = 7;
+  // This list of SoundFont names and KeySwitch labels is to be compared against
+  // what the user has available in
+  SoundFonts sound_fonts = 8;
+}
+
+// A SoundFonts message can represent one of two things:
+// 1) A prioritized list of preferred SoundFonts/KeySwitches to be used for a Part
+// 2) A list of all SoundFonts and KeySwitches available on the system.
+// The platform audio system is responsible for picking the appropriate SoundFonts
+// for a Part based on these names and labels. So when users load SoundFonts, they should
+// ideally not mess with names of them. (Labels are hardcoded in the SFZ files and less
+// likely to be messed with.)
+message SoundFonts {
+  repeated SoundFont sound_fonts = 1;
+}
+
+message SoundFont {
+  string name = 1;
+  repeated KeySwitch key_switches = 2;
+}
+
+message KeySwitch {
+  string label = 1;
+}
+
+message Part {
+  string id = 1;
+  Instrument instrument = 3;
+  repeated Melody melodies = 4;
+}
+
+message MelodyReference {
+  enum PlaybackType {
+    disabled = 0;
+    playback_indefinitely = 1;
+  }
+  string melody_id = 1;
+  PlaybackType playback_type = 2;
+  // Volume, between 0 and 1.
+  float volume = 3;
+}
+
+message Section {
+  string id = 1;
+  string name = 2;
+  Harmony harmony = 3;
+  Meter meter = 4;
+  Tempo tempo = 5;
+  NoteName key = 6;
+  repeated MelodyReference melodies = 100;
+
+  enum Color {
+    major = 0;
+    minor = 1;
+    dominant = 2;
+    augmented = 3;
+    diminished = 4;
+  }
+}
+
+message Score {
+  string id = 1;
+  string name = 2;
+  repeated Part parts = 3;
+  repeated Section sections = 4;
+}
